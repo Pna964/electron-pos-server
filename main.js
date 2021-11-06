@@ -3,7 +3,7 @@ electron app
 **/
 
 const path = require("path");
-const { fork } = require("child_process");
+const { fork, spawn } = require("child_process");
 const {
   app,
   BrowserWindow,
@@ -34,7 +34,7 @@ function createMainWindow () {
   }
 
   win.loadFile(path.join(__dirname, "./electron_app/index.html"));
-  win.openDevTools();
+  // win.openDevTools();
 
   win.on("ready-to-show", () => win.show());
 
@@ -77,30 +77,36 @@ function createMainWindow () {
     });
 
 
-    server.stderr.on("data", m => {
-      try {
-        const errObj = JSON.parse(m.toString());
-        const logger = new Logger(errObj.status, errObj.message);
-        win.webContents.send("logs", logger.toString());
-      }
-      catch (err) {
-        console.error(err);
-      }
-    });
+    // server.stderr.on("data", m => {
+    //   try {
+    //     const errObj = JSON.parse(m.toString());
+    //     const logger = new Logger(errObj.status, errObj.message);
+    //     win.webContents.send("logs", logger.toString());
+    //   }
+    //   catch (err) {
+    //     console.error(err);
+    //   }
+    // });
 
     server.on("exit", (code, signal) => {
 
       const logger = new Logger("info", `Server Terminated with signal : ${signal}`);
       win.webContents.send("server-stop", logger.toString());
 
-      // console.log("Sever stopped gracefully")
+      console.log("Sever stopped gracefully")
     });
+
+    server.on("close", (code) => {
+      console.log("server stopped with code", code);
+    })
 
     // stop server
     ipcMain.on("stop-server", (event, args) => {
       // console.log("stop-server ipc received.")
       if (server)
         server.kill('SIGTERM'); // stop server process
+
+      server = null;
     });
 
   });
@@ -115,8 +121,10 @@ app.whenReady().then(() => {
   server = fork(
     path.join(__dirname, ("./server.js")),
     [],
-    { silent: true }
+    // { silent: true }
   );
+
+  console.log('server pid', server.pid);
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0)
@@ -129,9 +137,15 @@ app.whenReady().then(() => {
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
     app.quit();
-    console.log("all window close")
+    console.log("all window close");
+    
     if (server) {
-      server.kill('SIGINT'); // kill server process once the app is closed
+      if (process.platform == "win32") {
+        console.log("trying to kll cps on winows");
+        spawn("taskkill", ["/pid", server.pid, '/f', '/t']);
+      }
+      else 
+        server.kill('SIGTERM'); // kill server process once the app is closed
     }
   }
 });

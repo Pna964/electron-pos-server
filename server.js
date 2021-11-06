@@ -1,6 +1,7 @@
 /**
 # Express Server
 **/
+console.log("SErver starting ...");
 const path = require("path");
 const express = require("express");
 const mongoose = require("mongoose");

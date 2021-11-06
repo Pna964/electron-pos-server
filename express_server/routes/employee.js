@@ -68,6 +68,10 @@ router.post("/login", async (req, res) => {
   try {
     const { username, password } = req.body;
 
+    const emp = await Employee.findOne({"username" : username});
+    if (!emp)
+      return res.status(400).send(JSON.stringify({"message" : "Invalid Username/Password"}));
+
     validateLogin(username, password, function(result) {
       const { status, message } = result;
 
